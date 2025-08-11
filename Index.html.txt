@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0b0e14">
+<meta name="format-detection" content="telephone=no">
+<!-- iOS PWA -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Referto Neurologia">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="manifest" href="manifest.webmanifest">
+<!-- iOS home icon (se non hai un'icona, questa è un semplice segnaposto) -->
+<link rel="apple-touch-icon" href="icon-512.png">
+
+<title>Referto Neurologia – iOS Ready</title>
+<style>
+  :root{
+    --bg:#0b0e14; --panel:#111623; --muted:#7f8ca3; --ink:#e9edf5; --accent:#4da3ff;
+    --ok:#2ecc71; --warn:#ffb020; --err:#ff5c5c; --line:#1b2233;
+    --radius:12px; --space:14px; --shadow:0 6px 24px rgba(0,0,0,.25);
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial;
+  }
+  html,body{height:100%}
+  body{
+    margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans);
+    -webkit-font-smoothing:antialiased; line-height:1.4;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  header{
+    position:sticky; top:0; z-index:10; backdrop-filter: blur(6px);
+    background:linear-gradient(180deg, rgba(11,14,20,.9), rgba(11,14,20,.6));
+    border-bottom:1px solid var(--line);
+    padding-top: env(safe-area-inset-top);
+  }
+  .bar{display:flex; gap:10px; align-items:center; padding:10px var(--space)}
+  .brand{font-weight:700; letter-spacing:.2px}
+  .pill{display:flex; gap:8px; align-items:center; background:var(--panel); border:1px solid var(--line);
+        padding:10px 12px; border-radius:999px}
+  .pill input[type="password"], .pill input[type="text"], .pill select{
+    background:transparent; border:none; outline:none; color:var(--ink); min-width:160px; font-size:16px;
+  }
+  .grid{
+    display:grid; gap:16px; padding:16px; grid-template-columns: 1.1fr .9fr;
+  }
+  @media (max-width:1100px){ .grid{grid-template-columns:1fr} }
+  .card{
+    background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
+    box-shadow:var(--shadow);
+  }
+  .card h2{font-size:16px; margin:0; padding:12px var(--space); border-bottom:1px solid var(--line)}
+  .card .content{padding:12px}
+  .row{display:grid; gap:12px; grid-template-columns:1fr}
+  .field label{display:block; font-size:12px; color:var(--muted); margin-bottom:6px}
+  textarea, input[type="text"]{
+    width:100%; background:#0d1220; color:var(--ink); border:1px solid var(--line);
+    border-radius:10px; padding:10px 12px; min-height:96px; resize:vertical; font-family:var(--sans);
+    font-size:16px; -webkit-text-size-adjust:100%;
+  }
+  textarea.small{min-height:64px}
+  textarea, input{ -webkit-overflow-scrolling: touch; }
+  .actions{display:flex; gap:10px; flex-wrap:wrap; margin-top:10px}
+  button{
+    background:var(--accent); color:#071422; border:none; border-radius:10px; padding:12px 14px;
+    cursor:pointer; font-weight:600; font-size:16px; touch-action: manipulation;
+  }
+  button.ghost{background:transparent; color:var(--ink); border:1px solid var(--line)}
+  button.warn{background:var(--warn); color:#1b1608}
+  button.ok{background:var(--ok); color:#071422}
+  button:disabled{opacity:.5; cursor:not-allowed}
+  .hint{font-size:12px; color:var(--muted)}
+  .ai-output{font-family:var(--mono); white-space:pre-wrap; background:#0a0f1d; border:1px dashed var(--line);
+             border-radius:10px; padding:10px; max-height:360px; overflow:auto; -webkit-overflow-scrolling:touch;}
+  .two{display:grid; grid-template-columns:1fr 1fr; gap:12px}
+  @media (max-width:900px){ .two{grid-template-columns:1fr} }
+  .badge{display:inline-block; font-size:11px; padding:2px 8px; border-radius:999px; border:1px solid var(--line); color:var(--muted)}
+  .status{font-size:12px; color:var(--muted)}
+  .footer{padding:14px var(--space); border-top:1px solid var(--line); display:flex; justify-content:space-between; align-items:center}
+  .toast{position:fixed; right:16px; bottom:16px; background:#0a0f1d; border:1px solid var(--line); padding:10px 12px; border-radius:10px}
+  .danger{color:var(--err)}
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <div class="brand">🧠 Referto Neurologia</div>
+    <div class="pill" title="Chiave API (rimane nel dispositivo)">
+      🔑 <input id="apiKey" type="password" placeholder="OpenAI API key" autocomplete="off" autocapitalize="off" autocorrect="off" />
+    </div>
+    <div class="pill" title="Modello">
+      🤖
+      <select id="model">
+        <option value="gpt-5-thinking" selected>gpt-5-thinking</option>
+        <option value="gpt-5">gpt-5</option>
+        <option value="gpt-4o-mini">gpt-4o-mini</option>
+      </select>
+      <span class="badge">PWA iOS</span>
+    </div>
+    <div class="pill" title="Anonimizza numeri e date prima di inviare all'API">
+      🛡️ <label class="hint">Anonimizza</label>
+      <input id="anon" type="checkbox" checked />
+    </div>
+    <div class="status" id="status"></div>
+  </div>
+</header>
+
+<main class="grid">
+  <section class="card">
+    <h2>Referto – Campi strutturati</h2>
+    <div class="content">
+      <div class="row">
+        <div class="field">
+          <label for="generalita">Generalità del paziente (evita dati identificativi)</label>
+          <textarea id="generalita" spellcheck="false" autocapitalize="sentences"></textarea>
+        </div>
+
+        <div class="two">
+          <div class="field">
+            <label for="anamFisiologica">Anamnesi fisiologica</label>
+            <textarea id="anamFisiologica" class="small" spellcheck="false" autocorrect="off"></textarea>
+          </div>
+          <div class="field">
+            <label for="anamFamiliare">Anamnesi familiare</label>
+            <textarea id="anamFamiliare" class="small" spellcheck="false" autocorrect="off"></textarea>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="anamRemota">Anamnesi remota</label>
+          <textarea id="anamRemota" spellcheck="false" autocorrect="off"></textarea>
+        </div>
+
+        <div class="field">
+          <label for="terapia">Terapia farmacologica in corso</label>
+          <textarea id="terapia" placeholder="Un farmaco per riga (nome, dose, via, orario)" spellcheck="false" autocorrect="off"></textarea>
+          <div class="actions">
+            <button id="btnAnalizzaTerapia">Analizza terapia (interazioni & appropriatezza)</button>
+            <span class="hint">Invia anche “anamnesi remota”.</span>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="anamRecente">Anamnesi recente</label>
+          <textarea id="anamRecente" placeholder="Motivo, decorso, caratteristiche sintomi…" spellcheck="false" autocorrect="off"></textarea>
+          <div class="actions">
+            <button id="btnProcessaAnamnesi" class="ok">Rifinisci e proponi conclusioni</button>
+            <span class="hint">Aggiorna automaticamente “Conclusioni”.</span>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="esameObiettivo">Esame obiettivo neurologico</label>
+          <textarea id="esameObiettivo" spellcheck="false" autocorrect="off"></textarea>
+        </div>
+
+        <div class="field">
+          <label for="conclusioni">Conclusioni</label>
+          <textarea id="conclusioni" spellcheck="false" autocorrect="off" placeholder="Diagnosi/ipotesi, accertamenti, terapia, follow-up…"></textarea>
+        </div>
+
+        <div class="actions">
+          <button id="btnAssembla" class="ghost">Genera referto completo</button>
+          <button id="btnCopia">Copia referto</button>
+          <button id="btnScarica" class="ghost">Scarica .txt</button>
+          <span class="hint">Bozza salvata localmente sul dispositivo.</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <aside class="card">
+    <h2>Assistente Clinico (GPT-5)</h2>
+    <div class="content">
+      <div class="field">
+        <label>Output</label>
+        <div id="aiOut" class="ai-output">Qui appariranno risultati e avvisi.</div>
+      </div>
+      <div class="field">
+        <label>Anteprima referto</label>
+        <textarea id="preview" style="min-height:180px" spellcheck="false"></textarea>
+      </div>
+    </div>
+    <div class="footer">
+      <div class="hint">⚠️ Supporto decisionale: verificare sempre su fonti cliniche. Niente dati identificativi.</div>
+      <button id="btnPulisci" class="warn">Svuota tutto</button>
+    </div>
+  </aside>
+</main>
+
+<div id="toast" class="toast" style="display:none"></div>
+
+<script>
+const $ = sel => document.querySelector(sel);
+const stateKeys = ["generalita","anamFisiologica","anamFamiliare","anamRemota","terapia","anamRecente","esameObiettivo","conclusioni"];
+const statusEl = $("#status"), aiOut = $("#aiOut"), previewEl = $("#preview");
+
+// --- PWA: registra service worker (solo su HTTPS) ---
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(()=>{});
+  });
+}
+
+function toast(msg, ms=2200){ const t=$("#toast"); t.textContent=msg; t.style.display="block"; setTimeout(()=>t.style.display="none", ms); }
+function setStatus(msg){ statusEl.textContent = msg || ""; }
+
+function saveDraft(){
+  const data = {};
+  stateKeys.forEach(k => data[k] = $("#"+k).value);
+  data._ts = Date.now();
+  try{ localStorage.setItem("refertoNeurol", JSON.stringify(data)); }catch(_){}
+}
+function loadDraft(){
+  const raw = localStorage.getItem("refertoNeurol");
+  if(!raw) return;
+  try{
+    const data = JSON.parse(raw);
+    stateKeys.forEach(k => { if(data[k]!==undefined) $("#"+k).value = data[k]; });
+  }catch(e){}
+}
+function clearAll(){
+  stateKeys.forEach(k => $("#"+k).value = "");
+  saveDraft(); aiOut.textContent = "Pulito.";
+  previewEl.value = "";
+}
+
+let saveTimer;
+document.addEventListener("input", (e)=>{
+  if(e.target.matches("textarea, input[type='text'], input[type='password']")) {
+    clearTimeout(saveTimer); saveTimer = setTimeout(saveDraft, 300);
+  }
+});
+
+// iOS-safe anonymizer
+function anonymize(s){
+  if(!$("#anon").checked) return s;
+  return s
+    .replace(/\b(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})\b/g, "##/##/####")
+    .replace(/\b[A-Z0-9]{11,16}\b/gi, "########")
+    .replace(/\b(\+?\d[\d\s\-]{7,})\b/g, "###-###-####")
+    .replace(/\b([A-ZÀ-ÖÙ-Ý][a-zà-öù-ý]+)\s([A-ZÀ-ÖÙ-Ý][a-zà-öù-ý]+)\b/g, "Sig./Sig.ra ####");
+}
+
+function assembleReferto(){
+  const get = id => $("#"+id).value.trim();
+  const lines = [];
+  lines.push("GENERALITÀ DEL PAZIENTE");
+  lines.push(get("generalita") || "-");
+  lines.push("");
+  lines.push("ANAMNESI FISIOLOGICA");
+  lines.push(get("anamFisiologica") || "-");
+  lines.push("");
+  lines.push("ANAMNESI FAMILIARE");
+  lines.push(get("anamFamiliare") || "-");
+  lines.push("");
+  lines.push("ANAMNESI REMOTA");
+  lines.push(get("anamRemota") || "-");
+  lines.push("");
+  lines.push("TERAPIA IN CORSO");
+  lines.push(get("terapia") || "-");
+  lines.push("");
+  lines.push("ANAMNESI RECENTE");
+  lines.push(get("anamRecente") || "-");
+  lines.push("");
+  lines.push("ESAME OBIETTIVO NEUROLOGICO");
+  lines.push(get("esameObiettivo") || "-");
+  lines.push("");
+  lines.push("CONCLUSIONI");
+  lines.push(get("conclusioni") || "-");
+  previewEl.value = lines.join("\n");
+}
+
+// Copia con fallback compatibile iOS (richiede gesto utente e HTTPS)
+async function copyText(txt){
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(txt);
+      toast("Copiato negli appunti");
+      return;
+    }
+  } catch(e){ /* fallback sotto */ }
+
+  // Fallback: selezione temporanea
+  const t = document.createElement("textarea");
+  t.value = txt;
+  t.style.position = "fixed"; t.style.opacity = "0"; t.style.top = "0"; t.style.left = "0";
+  document.body.appendChild(t); t.focus(); t.select();
+  try{ document.execCommand("copy"); toast("Copiato"); } catch(_){ toast("Seleziona e copia manualmente"); }
+  document.body.removeChild(t);
+}
+
+// Download compatibile iOS: usa Share Sheet se possibile, altrimenti Blob URL
+async function downloadTxt(filename, text){
+  try {
+    const file = new File([text], filename, { type: "text/plain" });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: filename, text: "Referto" });
+      return;
+    }
+  } catch(_){}
+  const blob = new Blob([text], {type:"text/plain;charset=utf-8"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  // Safari iOS potrebbe ignorare download=: apri nuova scheda → “Condividi” → “Salva su File”
+  a.rel = "noopener";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 3000);
+}
+
+async function callOpenAI({system, user, temperature=0.2, max_tokens=900}){
+  const apiKey = $("#apiKey").value.trim();
+  const model = $("#model").value;
+  if(!apiKey){ toast("Inserisci la API key OpenAI"); throw new Error("No API key"); }
+  const url = "https://api.openai.com/v1/chat/completions";
+  const body = {
+    model,
+    messages: [
+      {role:"system", content: system},
+      {role:"user", content: user}
+    ],
+    temperature,
+    max_tokens,
+    reasoning: { effort: "medium" }
+  };
+
+  const controller = new AbortController();
+  const timeout = setTimeout(()=>controller.abort(), 45000); // rete cellulare
+
+  const res = await fetch(url, {
+    method:"POST",
+    headers:{ "Content-Type":"application/json", "Authorization":"Bearer " + apiKey },
+    body: JSON.stringify(body),
+    signal: controller.signal
+  }).catch(e=>{
+    throw new Error("Rete/permessi: " + (e.name || "errore"));
+  });
+  clearTimeout(timeout);
+  if(!res.ok){
+    const text = await res.text();
+    throw new Error("OpenAI API: " + text);
+  }
+  const data = await res.json();
+  return data.choices?.[0]?.message?.content || "";
+}
+
+// ---- Prompts clinici ----
+function buildTherapyPrompt(terapia, anamRemota){
+  return {
+    system:
+`Assistente clinico per neurologia ambulatoriale (Italia). Stile conciso e prudente.
+1) Interazioni tra farmaci (CYP/trasportatori, serotonergico, QT, emorragico, SNC, ecc.).
+2) Appropriatezza rispetto a patologie in anamnesi remota.
+3) Indica severità (Min/Mod/Magg) e raccomandazione pratica.
+Limiti: supporto, non sostituisce linee guida. Evidenzia high-risk con "⚠️".`,
+    user:
+`Terapia in corso:
+${terapia.trim()}
+
+Anamnesi remota:
+${anamRemota.trim()}
+
+Formato:
+### Interazioni potenziali
+| Coppia | Meccanismo | Effetto | Severità | Raccomandazione |
+|---|---|---|---|---|
+
+### Appropriatezza
+- [farmaco] → nota su rischio/adeguamento/controindicazioni.
+
+### Note rapide
+- Eventuali sostituzioni più sicure.`
+  };
+}
+
+function buildAnamPrompt(payload){
+  const {generalita, anamRemota, terapia, anamRecente, esameObiettivo} = payload;
+  return {
+    system:
+`Assistente per referti neurologici. Obiettivi:
+A) Riorganizza l'anamnesi recente (chiara e breve).
+B) Conclusioni proposte: ipotesi (priorità+razionale), accertamenti stepwise, terapia iniziale/aggiustamenti (range adulto), red flags.
+Tono prudente: "suggeriamo/valutare".`,
+    user:
+`Contesto:
+Generalità: ${generalita || "-"}
+Anamnesi remota: ${anamRemota || "-"}
+Terapia in corso: ${terapia || "-"}
+Esame obiettivo: ${esameObiettivo || "-"}
+
+ANAMNESI RECENTE (da riordinare):
+${anamRecente}
+
+Output (markdown):
+## Anamnesi recente (riorganizzata)
+[prosa 6–10 righe]
+
+## Conclusioni proposte
+### Ipotesi diagnostiche (ordine di probabilità)
+- ...
+
+### Accertamenti ulteriori consigliati
+- ...
+
+### Terapia proposta / aggiustamenti
+- ...
+
+### Red flags da escludere
+- ...`
+  };
+}
+
+// ---- Azioni UI ----
+$("#btnAnalizzaTerapia").addEventListener("click", async ()=>{
+  try{
+    const terapia = anonymize($("#terapia").value);
+    const anamRemota = anonymize($("#anamRemota").value);
+    if(!terapia.trim()){ toast("Compila la terapia"); return; }
+    setStatus("Analisi terapia…");
+    aiOut.textContent = "Analizzo possibili interazioni e appropriatezza…";
+    const {system, user} = buildTherapyPrompt(terapia, anamRemota);
+    const out = await callOpenAI({system, user, temperature:0.1, max_tokens:1200});
+    aiOut.textContent = out || "(nessun output)";
+    setStatus("Pronto");
+  }catch(e){
+    aiOut.textContent = "Errore: " + e.message + "\nSuggerimento: verifica rete/HTTPS/API key.";
+    setStatus("");
+  }
+});
+
+$("#btnProcessaAnamnesi").addEventListener("click", async ()=>{
+  try{
+    const payload = {
+      generalita: anonymize($("#generalita").value),
+      anamRemota: anonymize($("#anamRemota").value),
+      terapia: anonymize($("#terapia").value),
+      esameObiettivo: anonymize($("#esameObiettivo").value),
+      anamRecente: anonymize($("#anamRecente").value)
+    };
+    if(!payload.anamRecente.trim()){ toast("Inserisci l'anamnesi recente"); return; }
+    setStatus("Elaborazione anamnesi…");
+    aiOut.textContent = "Riorganizzo l'anamnesi e preparo le conclusioni…";
+    const {system, user} = buildAnamPrompt(payload);
+    const out = await callOpenAI({system, user, temperature:0.2, max_tokens:1500});
+    aiOut.textContent = out || "(nessun output)";
+
+    // Estrazione sezioni → aggiorna campi
+    const rxAnam = /##\s*Anamnesi recente \(riorganizzata\)\s*([\s\S]*?)\n##\s*Conclusioni proposte/i;
+    const rxConc = /##\s*Conclusioni proposte\s*([\s\S]*)$/i;
+    const m1 = out.match(rxAnam); const m2 = out.match(rxConc);
+    if(m1 && m1[1]) { $("#anamRecente").value = m1[1].trim(); }
+    if(m2 && m2[1]) { $("#conclusioni").value = m2[1].trim(); }
+    saveDraft();
+    setStatus("Pronto");
+    toast("Anamnesi sistemata e conclusioni inserite ✅");
+  }catch(e){
+    aiOut.textContent = "Errore: " + e.message;
+    setStatus("");
+  }
+});
+
+$("#btnAssembla").addEventListener("click", assembleReferto);
+$("#btnCopia").addEventListener("click", ()=> { if(!previewEl.value.trim()) assembleReferto(); copyText(previewEl.value); });
+$("#btnScarica").addEventListener("click", ()=> {
+  if(!previewEl.value.trim()) assembleReferto();
+  downloadTxt("Referto_neurologia.txt", previewEl.value);
+});
+$("#btnPulisci").addEventListener("click", ()=>{ clearAll(); toast("Campi svuotati"); });
+
+window.addEventListener("load", ()=>{ loadDraft(); assembleReferto(); setStatus("Pronto"); });
+</script>
+</body>
+</html>
